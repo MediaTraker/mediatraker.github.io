@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#101114" />
+    <title>Media Tracker</title>
+    <link rel="preconnect" href="https://images.unsplash.com" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a class="brand" href="#catalog" aria-label="Media Tracker">
+          <span class="brand-mark">M</span><span>Media<span>Tracker</span></span>
+        </a>
+        <nav class="main-nav" aria-label="Основная навигация">
+          <a class="nav-link active" href="#catalog" data-nav="all"><span>▦</span> Каталог</a>
+          <a class="nav-link" href="#plans" data-nav="planned"><span>◷</span> В планах</a>
+          <a class="nav-link" href="#watching" data-nav="watching"><span>◉</span> Смотрю</a>
+          <a class="nav-link" href="#finished" data-nav="finished"><span>✓</span> Закончил</a>
+        </nav>
+        <div class="sidebar-bottom"><p>Ваш личный каталог</p><strong id="sidebarCount">0 записей</strong></div>
+      </aside>
+
+      <main>
+        <header class="topbar">
+          <button class="mobile-menu" id="menuButton" aria-label="Открыть меню">☰</button>
+          <div class="search-wrap"><span>⌕</span><input id="searchInput" type="search" placeholder="Поиск по названию..." autocomplete="off" /></div>
+          <button class="primary-button" id="addButton"><span>＋</span> Добавить</button>
+        </header>
+
+        <section class="content">
+          <div class="heading-row">
+            <div><p class="eyebrow">МОЯ КОЛЛЕКЦИЯ</p><h1 id="pageTitle">Каталог</h1><p class="subtitle" id="resultInfo">Все сохранённые истории в одном месте</p></div>
+            <div class="stats"><div><strong id="totalCount">0</strong><span>всего</span></div><div><strong id="finishedCount">0</strong><span>завершено</span></div></div>
+          </div>
+          <div class="filters" aria-label="Фильтры">
+            <div class="filter-group" id="categoryFilters">
+              <button class="chip active" data-category="all">Все</button><button class="chip" data-category="anime">Аниме</button><button class="chip" data-category="movie">Фильмы</button><button class="chip" data-category="series">Сериалы</button><button class="chip" data-category="cartoon">Мультфильмы</button>
+            </div>
+            <label class="select-wrap">Статус <select id="statusFilter"><option value="all">Любой</option><option value="planned">В планах</option><option value="watching">Смотрю</option><option value="finished">Закончил</option></select></label>
+          </div>
+          <div class="media-grid" id="mediaGrid"></div>
+          <div class="empty-state" id="emptyState" hidden><span>◌</span><h2>Ничего не найдено</h2><p>Попробуйте изменить поиск или добавьте новую запись.</p><button class="secondary-button" id="emptyAddButton">Добавить запись</button></div>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="mediaDialog">
+      <form id="mediaForm">
+        <div class="dialog-head"><div><p class="eyebrow">КОЛЛЕКЦИЯ</p><h2 id="dialogTitle">Добавить запись</h2></div><button class="icon-button" type="button" id="closeDialog" aria-label="Закрыть">×</button></div>
+        <input type="hidden" id="mediaId" name="id" />
+        <div class="form-grid">
+          <label class="field wide">Название<input id="title" name="title" required maxlength="80" placeholder="Например, Интерстеллар" /></label>
+          <label class="field">Категория<select id="category" name="category" required><option value="anime">Аниме</option><option value="movie">Фильм</option><option value="series">Сериал</option><option value="cartoon">Мультфильм</option></select></label>
+          <label class="field">Год<input id="year" name="year" type="number" min="1888" max="2100" required placeholder="2024" /></label>
+          <label class="field">Статус<select id="status" name="status" required><option value="planned">В планах</option><option value="watching">Смотрю</option><option value="finished">Закончил</option></select></label>
+          <label class="field">Рейтинг<input id="rating" name="rating" type="number" min="1" max="10" step="0.1" required placeholder="от 1 до 10" /></label>
+          <label class="field wide">Ссылка на постер <input id="poster" name="poster" type="url" placeholder="https://... (необязательно)" /></label>
+        </div>
+        <div class="dialog-actions"><button class="secondary-button" type="button" id="cancelDialog">Отмена</button><button class="primary-button" type="submit">Сохранить запись</button></div>
+      </form>
+    </dialog>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="script.js"></script>
+  </body>
+</html>
