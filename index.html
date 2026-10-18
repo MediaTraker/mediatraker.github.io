@@ -41,6 +41,8 @@
             </div>
             <label class="select-wrap">Статус <select id="statusFilter"><option value="all">Любой</option><option value="planned">В планах</option><option value="watching">Смотрю</option><option value="finished">Закончил</option></select></label>
           </div>
+          <div class="database-message" id="databaseMessage" role="alert" hidden></div>
+          <div class="loading-state" id="loadingState" role="status"><span class="loader" aria-hidden="true"></span>Загружаем каталог…</div>
           <div class="media-grid" id="mediaGrid"></div>
           <div class="empty-state" id="emptyState" hidden><span>◌</span><h2>Ничего не найдено</h2><p>Попробуйте изменить поиск или добавьте новую запись.</p><button class="secondary-button" id="emptyAddButton">Добавить запись</button></div>
         </section>
@@ -63,6 +65,6 @@
       </form>
     </dialog>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="script.js"></script>
+    <script type="module" src="script.js"></script>
   </body>
 </html>
