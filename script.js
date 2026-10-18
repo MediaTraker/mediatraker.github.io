@@ -1,6 +1,7 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
 import { addDoc, collection, deleteDoc, doc, getFirestore, onSnapshot, orderBy, query, updateDoc } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
+import { TMDB_KEY } from './tmdb-config.js';
 
 const STORAGE_KEY = 'media-tracker-items-v1';
 const MIGRATION_KEY = 'media-tracker-firestore-migration-v1';
@@ -18,6 +19,8 @@ let toastTimer;
 let isLoading = true;
 let databaseAvailable = true;
 let migrationChecked = false;
+let tmdbSearchTimer;
+let tmdbSearchRequest = 0;
 
 function readLegacyItems() {
   try { const saved = JSON.parse(localStorage.getItem(STORAGE_KEY)); return Array.isArray(saved) ? saved : []; } catch { return []; }
@@ -63,7 +66,51 @@ function openForm(item) {
   $('#mediaDialog').showModal(); $('#title').focus();
 }
 function closeForm() { $('#mediaDialog').close(); }
-function noteData(data) { return { title: data.title.trim(), category: data.category, year: Number(data.year), status: data.status, rating: Number(data.rating), poster: data.poster.trim() }; }
+function noteData(data) { return { title: data.title.trim(), category: data.category, year: Number(data.year), status: data.status, rating: Number(data.rating), poster: data.poster.trim(), overview: data.overview.trim(), tmdbId: data.tmdbId ? Number(data.tmdbId) : null }; }
+function setTmdbResults(content, visible = true) {
+  const results = $('#tmdbResults');
+  results.innerHTML = content;
+  results.hidden = !visible;
+}
+function tmdbResultMarkup(item) {
+  const title = item.title || item.name || 'Без названия';
+  const date = item.release_date || item.first_air_date || '';
+  const year = date ? date.slice(0, 4) : '—';
+  const type = item.media_type === 'movie' ? 'Фильм' : 'Сериал';
+  const poster = item.poster_path ? `https://image.tmdb.org/t/p/w342${item.poster_path}` : '';
+  return `<button class="tmdb-result" type="button" data-tmdb-result='${escapeHTML(JSON.stringify(item))}'>${poster ? `<img src="${escapeHTML(poster)}" alt="">` : '<span class="tmdb-poster-placeholder">M</span>'}<span><strong>${escapeHTML(title)}</strong><small>${type} · ${year}</small></span></button>`;
+}
+async function searchTmdb(title) {
+  const requestId = ++tmdbSearchRequest;
+  if (title.length < 2) { setTmdbResults('', false); return; }
+  setTmdbResults('<p class="tmdb-state">Ищем в TMDB…</p>');
+  try {
+    const url = new URL('https://api.themoviedb.org/3/search/multi');
+    url.search = new URLSearchParams({ api_key: TMDB_KEY, language: 'ru-RU', query: title }).toString();
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`TMDB request failed: ${response.status}`);
+    const data = await response.json();
+    if (requestId !== tmdbSearchRequest) return;
+    const results = (data.results || []).filter((item) => item.media_type === 'movie' || item.media_type === 'tv').slice(0, 6);
+    setTmdbResults(results.length ? results.map(tmdbResultMarkup).join('') : '<p class="tmdb-state">Ничего не найдено</p>');
+  } catch (error) {
+    if (requestId !== tmdbSearchRequest) return;
+    console.error('TMDB search failed:', error);
+    setTmdbResults('<p class="tmdb-state">Не удалось выполнить поиск TMDB. Попробуйте ещё раз.</p>');
+  }
+}
+function selectTmdbResult(item) {
+  const title = item.title || item.name || '';
+  const date = item.release_date || item.first_air_date || '';
+  $('#title').value = title;
+  $('#year').value = date ? date.slice(0, 4) : '';
+  $('#category').value = item.media_type === 'tv' ? 'series' : 'movie';
+  $('#overview').value = item.overview || '';
+  $('#poster').value = item.poster_path ? `https://image.tmdb.org/t/p/w342${item.poster_path}` : '';
+  $('#tmdbId').value = item.id;
+  tmdbSearchRequest += 1;
+  setTmdbResults('', false);
+}
 async function migrateLegacyItems() {
   if (migrationChecked || localStorage.getItem(MIGRATION_KEY)) return;
   migrationChecked = true;
@@ -85,6 +132,16 @@ $('#emptyAddButton').addEventListener('click', () => openForm());
 $('#closeDialog').addEventListener('click', closeForm);
 $('#cancelDialog').addEventListener('click', closeForm);
 $('#searchInput').addEventListener('input', render);
+$('#title').addEventListener('input', (event) => {
+  clearTimeout(tmdbSearchTimer);
+  const title = event.target.value.trim();
+  tmdbSearchTimer = setTimeout(() => searchTmdb(title), 400);
+});
+$('#tmdbResults').addEventListener('click', (event) => {
+  const result = event.target.closest('[data-tmdb-result]');
+  if (!result) return;
+  try { selectTmdbResult(JSON.parse(result.dataset.tmdbResult)); } catch (error) { console.error('Invalid TMDB result:', error); }
+});
 $('#statusFilter').addEventListener('change', (event) => { activeStatus = event.target.value; render(); });
 $('#categoryFilters').addEventListener('click', (event) => { const button = event.target.closest('[data-category]'); if (!button) return; activeCategory = button.dataset.category; document.querySelectorAll('[data-category]').forEach((chip) => chip.classList.toggle('active', chip === button)); render(); });
 $('.main-nav').addEventListener('click', (event) => { const link = event.target.closest('[data-nav]'); if (!link) return; activeNav = link.dataset.nav; document.querySelectorAll('[data-nav]').forEach((nav) => nav.classList.toggle('active', nav === link)); $('#pageTitle').textContent = activeNav === 'all' ? 'Каталог' : statusNames[activeNav]; $('#menuButton').setAttribute('aria-expanded', 'false'); $('.sidebar').classList.remove('open'); render(); });

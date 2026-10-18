@@ -7,6 +7,9 @@
     <title>Media Tracker</title>
     <link rel="preconnect" href="https://images.unsplash.com" />
     <link rel="stylesheet" href="style.css" />
+    <style>
+      .tmdb-results{grid-column:1/-1;display:grid;gap:7px;max-height:252px;overflow:auto;padding:4px}.tmdb-result{display:flex;gap:10px;align-items:center;width:100%;padding:8px;border:1px solid #303139;border-radius:8px;background:#22232a;color:#f5f3f0;text-align:left;cursor:pointer}.tmdb-result:hover{border-color:#ef9c58}.tmdb-result img,.tmdb-poster-placeholder{width:36px;height:52px;flex:0 0 36px;border-radius:5px;object-fit:cover;background:#363741}.tmdb-poster-placeholder{display:grid;place-items:center;color:#9b9ca5;font-weight:700}.tmdb-result strong,.tmdb-result small{display:block}.tmdb-result small,.tmdb-state{color:#9b9ca5;font-size:12px}.tmdb-state{margin:4px 0}.field textarea{width:100%;resize:vertical;padding:11px 12px;background:#191a1f;color:#f5f3f0;border:1px solid #303139;border-radius:8px;font:inherit;outline:none}.field textarea:focus{border-color:#ef9c58;box-shadow:0 0 0 3px rgba(239,156,88,.12)}
+    </style>
   </head>
   <body>
     <div class="app-shell">
@@ -53,13 +56,16 @@
       <form id="mediaForm">
         <div class="dialog-head"><div><p class="eyebrow">КОЛЛЕКЦИЯ</p><h2 id="dialogTitle">Добавить запись</h2></div><button class="icon-button" type="button" id="closeDialog" aria-label="Закрыть">×</button></div>
         <input type="hidden" id="mediaId" name="id" />
+        <input type="hidden" id="tmdbId" name="tmdbId" />
         <div class="form-grid">
-          <label class="field wide">Название<input id="title" name="title" required maxlength="80" placeholder="Например, Интерстеллар" /></label>
+          <label class="field wide">Название<input id="title" name="title" required maxlength="80" placeholder="Например, Интерстеллар" autocomplete="off" /></label>
+          <div class="tmdb-results wide" id="tmdbResults" aria-live="polite" hidden></div>
           <label class="field">Категория<select id="category" name="category" required><option value="anime">Аниме</option><option value="movie">Фильм</option><option value="series">Сериал</option><option value="cartoon">Мультфильм</option></select></label>
           <label class="field">Год<input id="year" name="year" type="number" min="1888" max="2100" required placeholder="2024" /></label>
           <label class="field">Статус<select id="status" name="status" required><option value="planned">В планах</option><option value="watching">Смотрю</option><option value="finished">Закончил</option></select></label>
           <label class="field">Рейтинг<input id="rating" name="rating" type="number" min="1" max="10" step="0.1" required placeholder="от 1 до 10" /></label>
           <label class="field wide">Ссылка на постер <input id="poster" name="poster" type="url" placeholder="https://... (необязательно)" /></label>
+          <label class="field wide">Описание<textarea id="overview" name="overview" rows="3" maxlength="1000" placeholder="Необязательно"></textarea></label>
         </div>
         <div class="dialog-actions"><button class="secondary-button" type="button" id="cancelDialog">Отмена</button><button class="primary-button" type="submit">Сохранить запись</button></div>
       </form>
