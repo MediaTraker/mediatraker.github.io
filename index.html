@@ -9,9 +9,15 @@
     <link rel="apple-touch-icon" href="icons/icon-192.svg" />
     <link rel="preconnect" href="https://images.unsplash.com" />
     <link rel="stylesheet" href="style.css" />
+    <style>
+      .auth-screen{min-height:100vh;display:grid;place-items:center;padding:24px;background:#101114}.auth-card{width:min(420px,100%);padding:34px;border:1px solid #303139;border-radius:16px;background:#191a1f;text-align:center}.auth-card h1{margin:8px 0 10px;font-size:28px}.auth-card p{color:#9b9ca5;margin:0 0 24px}.auth-message{min-height:20px;color:#ffb4aa;font-size:13px;margin:12px 0 0}.user-menu{display:flex;align-items:center;gap:9px;margin-left:auto}.user-menu img{width:32px;height:32px;border-radius:50%;object-fit:cover;background:#303139}.user-menu span{font-size:13px;font-weight:700}.import-panel{margin:0 0 20px;padding:14px;border:1px solid #514535;border-radius:10px;background:#2a241e;color:#f5f3f0}.import-panel p{margin:0 0 10px;color:#d4c2af;font-size:13px}.import-panel .secondary-button{margin-right:8px}@media(max-width:760px){.user-menu span{display:none}.user-menu .secondary-button{padding:8px 10px;font-size:12px}}
+    </style>
   </head>
   <body>
-    <div class="app-shell">
+    <section class="auth-screen" id="authScreen" hidden>
+      <div class="auth-card"><p class="eyebrow">MEDIA TRACKER</p><h1>Ваш личный каталог</h1><p>Войдите через Google, чтобы синхронизировать записи между устройствами.</p><button class="primary-button" id="signInButton">Войти через Google</button><p class="auth-message" id="authMessage" role="alert"></p></div>
+    </section>
+    <div class="app-shell" id="appShell" hidden>
       <aside class="sidebar">
         <a class="brand" href="#catalog" aria-label="Media Tracker">
           <span class="brand-mark">M</span><span>Media<span>Tracker</span></span>
@@ -30,6 +36,7 @@
           <button class="mobile-menu" id="menuButton" aria-label="Открыть меню">☰</button>
           <div class="search-wrap"><span>⌕</span><input id="searchInput" type="search" placeholder="Поиск по названию..." autocomplete="off" /></div>
           <button class="primary-button" id="addButton"><span>＋</span> Добавить</button>
+          <div class="user-menu"><img id="userAvatar" alt="" hidden /><span id="userName"></span><button class="secondary-button" id="signOutButton">Выйти</button></div>
         </header>
 
         <section class="content">
@@ -44,6 +51,7 @@
             <label class="select-wrap">Статус <select id="statusFilter"><option value="all">Любой</option><option value="planned">В планах</option><option value="watching">Смотрю</option><option value="finished">Закончил</option></select></label>
           </div>
           <div class="database-message" id="databaseMessage" role="alert" hidden></div>
+          <div class="import-panel" id="importPanel" hidden><p id="importMessage">В вашем новом каталоге пока нет записей.</p><button class="secondary-button" id="importButton">Импортировать старые записи</button></div>
           <div class="loading-state" id="loadingState" role="status"><span class="loader" aria-hidden="true"></span>Загружаем каталог…</div>
           <div class="media-grid" id="mediaGrid"></div>
           <div class="empty-state" id="emptyState" hidden><span>◌</span><h2>Ничего не найдено</h2><p>Попробуйте изменить поиск или добавьте новую запись.</p><button class="secondary-button" id="emptyAddButton">Добавить запись</button></div>

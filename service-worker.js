@@ -1,4 +1,4 @@
-const CACHE_NAME = 'media-tracker-static-v1';
+const CACHE_NAME = 'media-tracker-static-v2';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -9,13 +9,8 @@ const STATIC_ASSETS = [
   './icons/icon-192.svg',
   './icons/icon-512.svg'
 ];
-const NETWORK_FIRST_HOSTS = [
-  'firestore.googleapis.com',
-  'firebase.googleapis.com',
-  'identitytoolkit.googleapis.com',
-  'securetoken.googleapis.com',
-  'api.themoviedb.org'
-];
+const NETWORK_ONLY_HOSTS = ['firestore.googleapis.com', 'firebase.googleapis.com', 'identitytoolkit.googleapis.com', 'securetoken.googleapis.com', 'firebaseinstallations.googleapis.com', 'accounts.google.com'];
+const NETWORK_FIRST_HOSTS = ['api.themoviedb.org'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)).then(() => self.skipWaiting()));
@@ -49,6 +44,10 @@ async function cacheFirst(request) {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
+  if (NETWORK_ONLY_HOSTS.includes(url.hostname) || url.hostname.endsWith('.googleapis.com')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
   if (NETWORK_FIRST_HOSTS.includes(url.hostname)) {
     event.respondWith(networkFirst(event.request));
     return;
