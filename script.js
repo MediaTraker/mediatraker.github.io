@@ -1,6 +1,6 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
 import { addDoc, collection, deleteDoc, doc, getDocs, getFirestore, onSnapshot, orderBy, query, updateDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
-import { getAuth, GoogleAuthProvider, getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 import { firebaseConfig } from './firebase-config.js';
 
 const STORAGE_KEY = 'media-tracker-items-v1';
@@ -19,14 +19,13 @@ let isLoading = false, databaseAvailable = false, migrationChecked = false, impo
 function escapeHTML(value) { const el = document.createElement('div'); el.textContent = value ?? ''; return el.innerHTML; }
 function plural(number, one, few, many) { const n = Math.abs(number) % 100, last = n % 10; return n > 10 && n < 20 ? many : last > 1 && last < 5 ? few : last === 1 ? one : many; }
 function authError(error) {
-  if (error?.code === 'auth/unauthorized-domain') return 'Этот домен не добавлен в разрешённые домены Firebase Authentication.';
-  if (error?.code === 'auth/network-request-failed') return 'Ошибка сети. Проверьте подключение к интернету.';
-  if (error?.code === 'permission-denied' || error?.code === 'firestore/permission-denied') return 'Нет доступа к вашему каталогу. Проверьте правила Firestore.';
-  return 'Не удалось выполнить операцию. Попробуйте ещё раз.';
+  const code = error?.code || 'unknown-error';
+  const details = code === 'auth/unauthorized-domain' ? 'Добавьте домен сайта в Firebase Authorized domains.' : code === 'auth/network-request-failed' ? 'Проверьте подключение к интернету.' : code.includes('permission-denied') ? 'Проверьте правила Firestore.' : 'Попробуйте ещё раз.';
+  return `Ошибка (${code}): ${details}`;
 }
 function showAuthMessage(message = '') { $('#authMessage').textContent = message; }
 function showToast(message) { clearTimeout(toastTimer); const toast = $('#toast'); toast.textContent = message; toast.classList.add('visible'); toastTimer = setTimeout(() => toast.classList.remove('visible'), 2600); }
-function showDatabaseError(message = 'База данных недоступна. Проверьте подключение и правила Firestore.') { databaseAvailable = false; isLoading = false; $('#databaseMessage').textContent = message; $('#databaseMessage').hidden = false; render(); }
+function showDatabaseError(error, fallback = 'Операция с каталогом не выполнена.') { databaseAvailable = false; isLoading = false; const message = typeof error === 'string' ? error : `${fallback} ${authError(error)}`; console.error('Firestore operation failed:', error); $('#databaseMessage').textContent = message; $('#databaseMessage').hidden = false; render(); }
 function requireDatabase() { if (databaseAvailable && notesCollection) return true; showToast('Каталог сейчас недоступен'); return false; }
 function readLegacyItems() { try { const saved = JSON.parse(localStorage.getItem(STORAGE_KEY)); return Array.isArray(saved) ? saved : []; } catch { return []; } }
 function posterMarkup(item) { const initial = escapeHTML(String(item.title || '').charAt(0).toUpperCase() || 'M'); return item.poster ? `<img src="${escapeHTML(item.poster)}" alt="Постер: ${escapeHTML(item.title)}">` : `<div class="poster-fallback">${initial}</div>`; }
@@ -41,19 +40,19 @@ function openForm(item) { if (!requireDatabase()) return; const form = $('#media
 function closeForm() { $('#mediaDialog').close(); }
 function noteData(data) { return { title: data.title.trim(), category: data.category, year: Number(data.year), status: data.status, rating: Number(data.rating), poster: data.poster.trim() }; }
 function updateProfile(user) { $('#userName').textContent = user.displayName || user.email || 'Пользователь'; $('#userAvatar').hidden = !user.photoURL; $('#userAvatar').src = user.photoURL || ''; }
-function setSignedInView(user) { $('#authScreen').hidden = true; $('#appShell').hidden = false; updateProfile(user); }
+function setSignedInView(user) { $('#authScreen').hidden = true; $('#appShell').hidden = false; updateProfile(user); window.scrollTo({ top: 0, left: 0, behavior: 'auto' }); }
 function setSignedOutView() { $('#appShell').hidden = true; $('#authScreen').hidden = false; $('#loadingState').hidden = true; }
 function subscribeToNotes(user) {
   if (unsubscribeNotes) unsubscribeNotes();
   notesCollection = collection(db, 'users', user.uid, 'notes'); isLoading = true; databaseAvailable = true; $('#databaseMessage').hidden = true; render();
-  unsubscribeNotes = onSnapshot(query(notesCollection, orderBy('createdAt')), (snapshot) => { items = snapshot.docs.map((note) => ({ id: note.id, ...note.data() })); isLoading = false; databaseAvailable = true; render(); if (!importingOldNotes) $('#importPanel').hidden = !snapshot.empty; migrateLegacyItems(); }, (error) => showDatabaseError(authError(error)));
+  unsubscribeNotes = onSnapshot(query(notesCollection, orderBy('createdAt')), (snapshot) => { items = snapshot.docs.map((note) => ({ id: note.id, ...note.data() })); isLoading = false; databaseAvailable = true; render(); if (!importingOldNotes) $('#importPanel').hidden = !snapshot.empty; migrateLegacyItems(); }, (error) => showDatabaseError(error, 'Не удалось загрузить каталог.'));
 }
 async function migrateLegacyItems() {
   if (migrationChecked || localStorage.getItem(MIGRATION_KEY)) return;
   migrationChecked = true; const legacyItems = readLegacyItems();
   if (!legacyItems.length) { localStorage.setItem(MIGRATION_KEY, 'none'); return; }
   if (!confirm(`Найдены ${legacyItems.length} старых локальных записей. Загрузить их в ваш каталог?`)) { localStorage.setItem(MIGRATION_KEY, 'declined'); return; }
-  try { await Promise.all(legacyItems.map((item) => addDoc(notesCollection, { title: String(item.title || '').trim(), category: item.category || 'movie', year: Number(item.year) || new Date().getFullYear(), status: item.status || 'planned', rating: Number(item.rating) || 1, poster: String(item.poster || '').trim(), createdAt: Date.now() }))); localStorage.removeItem(STORAGE_KEY); localStorage.setItem(MIGRATION_KEY, 'complete'); showToast('Локальные записи перенесены'); } catch (error) { showDatabaseError(authError(error)); }
+  try { await Promise.all(legacyItems.map((item) => addDoc(notesCollection, { title: String(item.title || '').trim(), category: item.category || 'movie', year: Number(item.year) || new Date().getFullYear(), status: item.status || 'planned', rating: Number(item.rating) || 1, poster: String(item.poster || '').trim(), createdAt: Date.now() }))); localStorage.removeItem(STORAGE_KEY); localStorage.setItem(MIGRATION_KEY, 'complete'); showToast('Локальные записи перенесены'); } catch (error) { showDatabaseError(error, 'Не удалось перенести локальные записи.'); }
 }
 async function importTopLevelNotes() {
   if (!requireDatabase()) return;
@@ -69,31 +68,28 @@ async function importTopLevelNotes() {
       await batch.commit();
     }
     $('#importMessage').textContent = `Импортировано записей: ${documents.length}.`; showToast('Импорт завершён');
-  } catch (error) { $('#importMessage').textContent = authError(error); } finally { importingOldNotes = false; button.disabled = false; }
+  } catch (error) { console.error('Legacy import failed:', error); $('#importMessage').textContent = authError(error); } finally { importingOldNotes = false; button.disabled = false; }
 }
-async function signIn() {
+function signIn() {
   showAuthMessage(''); $('#signInButton').disabled = true;
-  const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-  try { if (standalone) await signInWithRedirect(auth, provider); else await signInWithPopup(auth, provider); }
-  catch (error) { if (!standalone) { try { await signInWithRedirect(auth, provider); } catch (redirectError) { showAuthMessage(authError(redirectError)); } } else showAuthMessage(authError(error)); }
-  finally { $('#signInButton').disabled = false; }
+  const popupRequest = signInWithPopup(auth, provider);
+  popupRequest.catch((error) => { const hint = ' Откройте сайт в Chrome или Safari, не внутри приложения-мессенджера.'; showAuthMessage(`${authError(error)}${hint}`); console.error('Google sign-in failed:', error); }).finally(() => { $('#signInButton').disabled = false; });
 }
 
 $('#signInButton').addEventListener('click', signIn);
-$('#signOutButton').addEventListener('click', async () => { try { await signOut(auth); } catch (error) { showToast(authError(error)); } });
+$('#signOutButton').addEventListener('click', async () => { try { await signOut(auth); } catch (error) { showAuthMessage(authError(error)); console.error('Sign-out failed:', error); } });
 $('#importButton').addEventListener('click', importTopLevelNotes);
 $('#addButton').addEventListener('click', () => openForm()); $('#emptyAddButton').addEventListener('click', () => openForm()); $('#closeDialog').addEventListener('click', closeForm); $('#cancelDialog').addEventListener('click', closeForm); $('#searchInput').addEventListener('input', render);
 $('#statusFilter').addEventListener('change', (event) => { activeStatus = event.target.value; render(); });
 $('#categoryFilters').addEventListener('click', (event) => { const button = event.target.closest('[data-category]'); if (!button) return; activeCategory = button.dataset.category; document.querySelectorAll('[data-category]').forEach((chip) => chip.classList.toggle('active', chip === button)); render(); });
 $('.main-nav').addEventListener('click', (event) => { const link = event.target.closest('[data-nav]'); if (!link) return; activeNav = link.dataset.nav; document.querySelectorAll('[data-nav]').forEach((nav) => nav.classList.toggle('active', nav === link)); $('#pageTitle').textContent = activeNav === 'all' ? 'Каталог' : statusNames[activeNav]; $('.sidebar').classList.remove('open'); render(); });
-$('#mediaGrid').addEventListener('click', async (event) => { const editId = event.target.closest('[data-edit]')?.dataset.edit, deleteId = event.target.closest('[data-delete]')?.dataset.delete; if (editId) openForm(items.find((item) => item.id === editId)); if (deleteId && requireDatabase()) { const item = items.find((entry) => entry.id === deleteId); if (!item || !confirm(`Удалить «${item.title}»?`)) return; try { await deleteDoc(doc(notesCollection, deleteId)); showToast('Запись удалена'); } catch (error) { showDatabaseError(authError(error)); } } });
-$('#mediaForm').addEventListener('submit', async (event) => { event.preventDefault(); if (!requireDatabase()) return; const formData = Object.fromEntries(new FormData(event.currentTarget)), data = noteData(formData); try { if (formData.id) { await updateDoc(doc(notesCollection, formData.id), data); showToast('Изменения сохранены'); } else { await addDoc(notesCollection, { ...data, createdAt: Date.now() }); showToast('Запись добавлена'); } closeForm(); } catch (error) { showDatabaseError(authError(error)); } });
+$('#mediaGrid').addEventListener('click', async (event) => { const editId = event.target.closest('[data-edit]')?.dataset.edit, deleteId = event.target.closest('[data-delete]')?.dataset.delete; if (editId) openForm(items.find((item) => item.id === editId)); if (deleteId && requireDatabase()) { const item = items.find((entry) => entry.id === deleteId); if (!item || !confirm(`Удалить «${item.title}»?`)) return; try { await deleteDoc(doc(notesCollection, deleteId)); showToast('Запись удалена'); } catch (error) { showDatabaseError(error, 'Не удалось удалить запись.'); } } });
+$('#mediaForm').addEventListener('submit', async (event) => { event.preventDefault(); if (!requireDatabase()) return; const formData = Object.fromEntries(new FormData(event.currentTarget)), data = noteData(formData); try { if (formData.id) { await updateDoc(doc(notesCollection, formData.id), data); showToast('Изменения сохранены'); } else { await addDoc(notesCollection, { ...data, createdAt: Date.now() }); showToast('Запись добавлена'); } closeForm(); } catch (error) { showDatabaseError(error, 'Не удалось сохранить запись.'); } });
 $('#menuButton').addEventListener('click', () => { const sidebar = $('.sidebar'); sidebar.classList.toggle('open'); $('#menuButton').setAttribute('aria-expanded', String(sidebar.classList.contains('open'))); });
 $('#mediaDialog').addEventListener('click', (event) => { if (event.target === $('#mediaDialog')) closeForm(); });
 
-getRedirectResult(auth).catch((error) => showAuthMessage(authError(error)));
 onAuthStateChanged(auth, (user) => {
   currentUser = user;
-  if (!user) { if (unsubscribeNotes) unsubscribeNotes(); unsubscribeNotes = null; notesCollection = null; items = []; isLoading = false; databaseAvailable = false; $('#importPanel').hidden = true; setSignedOutView(); return; }
+  if (!user) { if (unsubscribeNotes) unsubscribeNotes(); unsubscribeNotes = null; notesCollection = null; items = []; isLoading = false; databaseAvailable = false; $('#importPanel').hidden = true; render(); setSignedOutView(); return; }
   setSignedInView(user); subscribeToNotes(user);
 });
