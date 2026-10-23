@@ -1,0 +1,10 @@
+{
+  "hosting": {
+    "public": "C:\\mediatraker",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ]
+  }
+}
